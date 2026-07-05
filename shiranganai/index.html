@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIの本気の「知らんがな」美術館</title>
+<style>
+  :root{
+    --wall:#2a1a1c;          /* 深い臙脂の壁 */
+    --wall2:#140c0d;
+    --gold:#d9b45a;
+    --gold-hi:#f3e2a6;
+    --gold-lo:#8a6a24;
+    --canvas:#0c0a0f;        /* 額の中のキャンバス（漆黒に近い） */
+    --ink:#f4ecdc;           /* 文字＝生成り */
+    --plate:#efe7d3;         /* 展示ラベルの紙 */
+    --plate-ink:#2b2620;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:"Hiragino Mincho ProN","Yu Mincho","YuMincho",serif;
+    color:var(--ink);
+    background:
+      radial-gradient(120% 80% at 50% 0%, rgba(255,240,200,.10), rgba(0,0,0,0) 55%),
+      linear-gradient(180deg, var(--wall) 0%, var(--wall2) 100%);
+    background-attachment:fixed;
+    min-height:100%;
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  .stage{
+    max-width:420px;
+    margin:0 auto;
+    padding:28px 20px 40px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    min-height:100%;
+  }
+  .screen{display:none;width:100%;animation:fade .6s ease both;}
+  .screen.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+  /* ===== 共通装飾 ===== */
+  .kicker{
+    font-size:12px;letter-spacing:.35em;color:var(--gold);
+    opacity:.8;margin-bottom:14px;text-indent:.35em;
+  }
+  .rule{
+    width:64px;height:1px;margin:18px auto;
+    background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  }
+
+  /* ===== タイトル ===== */
+  .title{
+    font-size:30px;line-height:1.45;font-weight:600;
+    margin:6px 0 14px;letter-spacing:.02em;
+  }
+  .title .q{color:var(--gold-hi);}
+  .lede{font-size:15px;color:#e6d8c0;opacity:.9;margin-bottom:8px;}
+
+  .btn{
+    display:block;width:100%;min-height:52px;
+    border:1px solid var(--gold-lo);border-radius:2px;
+    background:linear-gradient(180deg,#3a2528,#26181a);
+    color:var(--ink);font-family:inherit;font-size:16px;letter-spacing:.04em;
+    padding:14px 16px;margin:10px 0;cursor:pointer;
+    transition:transform .08s ease, box-shadow .2s ease, border-color .2s ease;
+    box-shadow:0 1px 0 rgba(255,255,255,.04) inset;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn.primary{
+    border-color:var(--gold);
+    background:linear-gradient(180deg,#6a4e1c,#3f2d10);
+    color:var(--gold-hi);font-size:18px;min-height:58px;letter-spacing:.12em;
+    box-shadow:0 0 0 1px rgba(217,180,90,.25) inset, 0 6px 20px rgba(0,0,0,.4);
+  }
+  .btn.ghost{
+    background:transparent;border-style:dashed;border-color:#5a4436;color:#d8c8ad;
+    font-size:15px;
+  }
+
+  /* ===== 悩み選択 ===== */
+  .prompt{font-size:19px;margin:2px 0 4px;letter-spacing:.04em;}
+  .sub{font-size:13px;color:#c9b89a;opacity:.85;margin-bottom:18px;}
+  .list{width:100%;}
+
+  /* ===== 結果＝展示 ===== */
+  .exhibit{
+    position:relative;width:100%;margin:6px 0 4px;
+    padding:26px 14px 8px;
+  }
+  /* スポットライト */
+  .exhibit::before{
+    content:"";position:absolute;left:50%;top:-6px;transform:translateX(-50%);
+    width:150%;height:120%;
+    background:radial-gradient(60% 55% at 50% 8%, rgba(255,244,214,.18), rgba(255,244,214,0) 70%);
+    pointer-events:none;z-index:0;
+  }
+  .frame{
+    position:relative;z-index:1;
+    padding:16px;border-radius:3px;
+    background:
+      linear-gradient(135deg,var(--gold-hi),var(--gold) 22%,var(--gold-lo) 50%,var(--gold) 78%,var(--gold-hi));
+    box-shadow:
+      0 0 0 2px var(--gold-lo),
+      0 14px 34px rgba(0,0,0,.55),
+      0 2px 0 rgba(255,255,255,.25) inset;
+  }
+  .frame::after{ /* 額の内側の溝 */
+    content:"";position:absolute;inset:9px;border-radius:2px;
+    box-shadow:0 0 0 2px rgba(90,66,20,.7) inset, 0 0 0 4px rgba(243,226,166,.5) inset;
+    pointer-events:none;
+  }
+  .canvas{
+    position:relative;
+    background:
+      radial-gradient(120% 90% at 50% 25%, #201a26 0%, var(--canvas) 70%);
+    border:1px solid #000;
+    min-height:210px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:30px 18px;
+  }
+  .work-no{
+    font-size:11px;letter-spacing:.3em;color:var(--gold);opacity:.75;margin-bottom:16px;
+  }
+  .verdict{
+    font-size:27px;line-height:1.5;color:var(--ink);
+    letter-spacing:.03em;text-shadow:0 1px 12px rgba(0,0,0,.6);
+  }
+  .sign{margin-top:18px;font-size:11px;color:#a99a7c;letter-spacing:.2em;opacity:.7;}
+
+  /* 展示ラベル（プレート） */
+  .plate{
+    z-index:1;position:relative;
+    background:var(--plate);color:var(--plate-ink);
+    text-align:left;max-width:290px;margin:16px auto 0;
+    padding:12px 15px;border-radius:1px;
+    box-shadow:0 4px 12px rgba(0,0,0,.35);
+    font-size:12.5px;line-height:1.65;
+  }
+  .plate .p-title{font-size:15px;font-weight:600;letter-spacing:.02em;margin-bottom:2px;}
+  .plate .p-meta{color:#6a6152;}
+  .plate .p-motif{margin-top:6px;padding-top:6px;border-top:1px solid #d5cbb2;color:#4a4437;}
+
+  /* 標準装備＋フッター */
+  .kit{
+    width:100%;margin-top:26px;padding-top:16px;
+    border-top:1px solid rgba(217,180,90,.22);
+    font-size:12.5px;color:#d3c4a7;text-align:left;line-height:1.9;
+  }
+  .kit a{color:var(--gold-hi);text-decoration:none;}
+  .foot{margin-top:16px;font-size:11px;color:#8f8069;letter-spacing:.1em;opacity:.8;}
+
+  .share{
+    margin-top:8px;
+    background:linear-gradient(180deg,#243c52,#152430);
+    border-color:#3d6280;color:#e8f2fb;letter-spacing:.06em;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <!-- ① タイトル -->
+  <section id="screen-title" class="screen active">
+    <div class="kicker">Ｔ Ｈ Ｅ　ＭＵＳＥＵＭ　ＯＦ</div>
+    <h1 class="title">AIの本気の<br><span class="q">「知らんがな」</span>美術館</h1>
+    <div class="rule"></div>
+    <p class="lede">あなたの悩みを、AIが荘厳に突き放します。</p>
+    <p class="lede" style="font-size:13px;opacity:.7;">入館料：無料（得るもの：特になし）</p>
+    <div class="rule"></div>
+    <button class="btn primary" onclick="go('select')">入 館 す る</button>
+  </section>
+
+  <!-- ② 悩みを選ぶ -->
+  <section id="screen-select" class="screen">
+    <div class="kicker">Ｇ Ａ Ｌ Ｌ Ｅ Ｒ Ｙ　Ｅ Ｎ Ｔ Ｒ Ａ Ｎ Ｃ Ｅ</div>
+    <h2 class="prompt">本日、鑑定に出す悩みは？</h2>
+    <p class="sub">お選びください。学芸員（AI）が拝見します。</p>
+    <div class="list" id="worry-list"></div>
+    <button class="btn ghost" onclick="pick(-1)">その他の悩み（言わずに進む）</button>
+  </section>
+
+  <!-- ③ 結果＝展示 -->
+  <section id="screen-result" class="screen">
+    <div class="kicker" id="hall">Ｅ Ｘ Ｈ Ｉ Ｂ Ｉ Ｔ　Ｈ Ａ Ｌ Ｌ</div>
+    <div class="exhibit">
+      <div class="frame">
+        <div class="canvas">
+          <div class="work-no" id="work-no">作品 No.000</div>
+          <div class="verdict" id="verdict">知らんがな。</div>
+          <div class="sign">— A.I., 2026</div>
+        </div>
+      </div>
+      <div class="plate">
+        <div class="p-title">『知らんがな』</div>
+        <div class="p-meta" id="plate-meta">A.I.（人工知能）／ 2026年 ／ デジタル顔料</div>
+        <div class="p-motif" id="plate-motif">モチーフ：—</div>
+      </div>
+    </div>
+
+    <button class="btn primary share" onclick="share()">この作品をシェア</button>
+    <button class="btn ghost" onclick="go('select')">別の悩みで鑑賞する</button>
+
+    <div class="kit">
+      🛠 これ、スマホのClaude Codeだけで作りました（作り方: <a href="#">#</a>）<br>
+      🎁 次のヘンなアプリはフォローで → <a href="#">@ai_iinari_man</a>
+    </div>
+    <p class="foot">エンタメ目的の遊びです</p>
+  </section>
+
+</div>
+
+<script>
+  var SHARE_URL = "https://karinto-bento.github.io/01/shiranganai/";
+
+  var WORRIES = [
+    "昼ごはん、何を食べるか",
+    "傘を持っていくべきか",
+    "返信の絵文字、どれにするか",
+    "二度寝するか、起きるか",
+    "コンビニの新作を買うか",
+    "アイス、どの味にするか",
+    "今日の靴下、どっちの色",
+    "お風呂、今入るか後にするか",
+    "自販機で何を買うか",
+    "髪、切るか伸ばすか",
+    "既読をつけるタイミング",
+    "週末、どこにも行かず終わるか"
+  ];
+
+  var VERDICTS = [
+    "知らんがな。",
+    "知らんがな（心から）。",
+    "知らんがな。だが、君に幸あれ。",
+    "知らんがな。しかし、よい問いである。",
+    "知らんがな。以上、閉幕。",
+    "知らんがな。──沈黙もまた、芸術だ。",
+    "知らんがな。宇宙は、広い。",
+    "知らんがな。だが、君の一日に光あれ。",
+    "知らんがな、と月も申しております。",
+    "知らんがな。答えは君の中にある（たぶん）。",
+    "知らんがな。されど、問うた勇気を讃える。",
+    "知らんがな。時の流れに、委ねよ。",
+    "知らんがな。──これは、深い。",
+    "知らんがな。だが、君は今日もえらい。",
+    "知らんがな（荘厳）。",
+    "知らんがな。風のみぞ、知る。",
+    "知らんがな。だが、悪くない悩みだ。",
+    "知らんがな。心ゆくまで、悩みたまえ。",
+    "知らんがな。──永遠に。",
+    "知らんがな。だが、君の選択を信じている。",
+    "知らんがな。星に、願え。",
+    "知らんがな。しかし、美しい迷いだ。",
+    "知らんがな。全ては、移ろう。",
+    "知らんがな。だが、君は間違っていない。",
+    "知らんがな。──静かに、深く。",
+    "知らんがな。運命は、きっと味方する。",
+    "知らんがな。されど今日も生きている、それでよい。",
+    "知らんがな。だが、その悩みごと、愛おしい。",
+    "知らんがな。天のみぞ知る領域である。",
+    "知らんがな。まあ、なんとかなる。",
+    "知らんがな。だが、君の午後に祝福を。",
+    "知らんがな。──沈黙。そして、肯定。"
+  ];
+
+  var currentWorry = "（言わずにおいた悩み）";
+
+  // 悩みボタンを描画
+  (function(){
+    var box = document.getElementById("worry-list");
+    for (var i=0;i<WORRIES.length;i++){
+      var b = document.createElement("button");
+      b.className = "btn";
+      b.textContent = WORRIES[i];
+      (function(idx){ b.onclick = function(){ pick(idx); }; })(i);
+      box.appendChild(b);
+    }
+  })();
+
+  function go(name){
+    var scs = document.querySelectorAll(".screen");
+    for (var i=0;i<scs.length;i++) scs[i].classList.remove("active");
+    document.getElementById("screen-"+name).classList.add("active");
+    window.scrollTo(0,0);
+  }
+
+  function pad3(n){ return ("00"+n).slice(-3); }
+
+  function pick(idx){
+    currentWorry = (idx === -1) ? "（言わずにおいた悩み）" : WORRIES[idx];
+    var verdict = VERDICTS[Math.floor(Math.random()*VERDICTS.length)];
+    var no = 1 + Math.floor(Math.random()*888);
+
+    document.getElementById("verdict").textContent = verdict;
+    document.getElementById("work-no").textContent = "作品 No." + pad3(no);
+    document.getElementById("plate-motif").textContent = "モチーフ：" + currentWorry;
+    go("result");
+  }
+
+  function share(){
+    var text =
+      "【AIの本気の「知らんがな」美術館】悩み「" + currentWorry + "」への回答→「知らんがな」\n" +
+      SHARE_URL + " #AI言いなりマン";
+    var url = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(text);
+    window.open(url, "_blank");
+  }
+</script>
+</body>
+</html>
