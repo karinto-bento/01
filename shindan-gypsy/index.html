@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>診断ジプシー度チェッカー</title>
+<style>
+  :root{
+    --paper:#efe6cf;          /* パスポート紙色 */
+    --paper2:#e4d8b8;
+    --ink:#2b2620;
+    --navy:#1c2a3d;
+    --navy-hi:#3a5578;
+    --gold:#a9822f;
+    --gold-hi:#c9a24c;
+    --red:#b3121b;
+    --bg1:#152233;
+    --bg2:#0b1420;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    color:#eee6cf;
+    background:
+      radial-gradient(120% 80% at 50% 0%, rgba(160,190,230,.10), rgba(0,0,0,0) 55%),
+      linear-gradient(180deg, var(--bg1) 0%, var(--bg2) 100%);
+    background-attachment:fixed;
+    min-height:100%;
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  .stage{
+    max-width:420px;
+    margin:0 auto;
+    padding:28px 20px 40px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    min-height:100%;
+  }
+  .screen{display:none;width:100%;animation:fade .5s ease both;}
+  .screen.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+  .kicker{
+    font-size:12px;letter-spacing:.3em;color:var(--gold-hi);
+    opacity:.85;margin-bottom:14px;
+  }
+  .rule{
+    width:64px;height:1px;margin:18px auto;
+    background:linear-gradient(90deg,transparent,var(--gold-hi),transparent);
+  }
+
+  /* ===== タイトル ===== */
+  .title{
+    font-size:27px;line-height:1.5;font-weight:700;
+    margin:6px 0 14px;letter-spacing:.02em;
+  }
+  .lede{font-size:15px;color:#dcd2b6;opacity:.92;margin-bottom:6px;}
+  .note{font-size:12.5px;color:#9aa8bd;opacity:.85;margin-top:6px;}
+
+  .btn{
+    display:block;width:100%;min-height:52px;
+    border:1px solid #4a6180;border-radius:4px;
+    background:linear-gradient(180deg,#233650,#152233);
+    color:#eee6cf;font-family:inherit;font-size:16px;letter-spacing:.03em;
+    padding:14px 16px;margin:10px 0;cursor:pointer;
+    transition:transform .08s ease, box-shadow .2s ease, border-color .2s ease;
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn.primary{
+    border-color:var(--gold-hi);
+    background:linear-gradient(180deg,#6a4e1c,#3f2d10);
+    color:#f3e2a6;font-size:18px;min-height:58px;letter-spacing:.08em;
+    box-shadow:0 0 0 1px rgba(201,162,76,.25) inset, 0 6px 20px rgba(0,0,0,.4);
+  }
+  .btn.ghost{
+    background:transparent;border-style:dashed;border-color:#3d5170;color:#c7d2e2;
+    font-size:14.5px;min-height:46px;
+  }
+  .btn.share{
+    background:linear-gradient(180deg,#7a1c22,#4a1013);
+    border-color:#c94a4a;color:#ffe9e2;
+  }
+
+  /* ===== チェックリスト ===== */
+  .prompt{font-size:19px;margin:2px 0 4px;letter-spacing:.03em;}
+  .sub{font-size:13px;color:#c3cee0;opacity:.85;margin-bottom:16px;}
+  .list{width:100%;text-align:left;}
+  .chk{
+    display:flex;align-items:flex-start;gap:10px;
+    width:100%;padding:12px 14px;margin:8px 0;
+    background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.08);border-radius:6px;
+    font-size:14px;line-height:1.55;cursor:pointer;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .chk:active{background:rgba(255,255,255,.08);}
+  .chk input{
+    flex:0 0 auto;width:20px;height:20px;margin-top:2px;accent-color:var(--gold-hi);
+  }
+  .chk.checked{background:rgba(201,162,76,.14);border-color:rgba(201,162,76,.5);}
+  .counter{
+    font-size:12.5px;color:#9aa8bd;margin:4px 0 14px;letter-spacing:.05em;
+  }
+
+  /* ===== 結果＝診断パスポート ===== */
+  .passport{
+    position:relative;width:100%;margin:4px 0 8px;
+    padding:22px 16px 20px;border-radius:8px;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.02) 0 2px, transparent 2px 4px),
+      linear-gradient(160deg, var(--paper), var(--paper2));
+    color:var(--ink);
+    box-shadow:0 0 0 1px rgba(0,0,0,.15), 0 16px 34px rgba(0,0,0,.5);
+    overflow:hidden;
+  }
+  .passport::before{
+    content:"PASSPORT";
+    position:absolute;top:8px;right:14px;
+    font-size:11px;letter-spacing:.35em;color:rgba(43,38,32,.35);
+    font-weight:700;
+  }
+  .passport-head{
+    font-size:11px;letter-spacing:.25em;color:#5a5240;opacity:.85;margin-bottom:10px;text-align:left;
+  }
+  .stamps{
+    display:flex;flex-wrap:wrap;justify-content:center;gap:8px;
+    min-height:56px;margin:6px 0 14px;
+  }
+  .stamp{
+    font-size:30px;display:inline-block;opacity:0;
+    animation:stampDon .5s cubic-bezier(.3,1.6,.5,1) forwards;
+    --rot:-8deg;
+    filter:drop-shadow(0 3px 3px rgba(0,0,0,.35));
+  }
+  @keyframes stampDon{
+    0%{transform:scale(2.3) rotate(0deg);opacity:0;}
+    55%{transform:scale(0.85) rotate(var(--rot));opacity:1;}
+    72%{transform:scale(1.2) rotate(var(--rot));}
+    100%{transform:scale(1) rotate(var(--rot));opacity:1;}
+  }
+  .voyage{
+    font-size:12.5px;color:#5a5240;margin-bottom:6px;letter-spacing:.05em;
+  }
+  .pct{
+    font-size:44px;font-weight:800;color:var(--navy);letter-spacing:.02em;line-height:1.1;
+  }
+  .pct span{font-size:22px;font-weight:700;}
+
+  .stamp-final-wrap{
+    display:flex;justify-content:center;margin:16px 0 6px;
+    opacity:0;animation:none;
+  }
+  .stamp-final-wrap.show{
+    animation:stampFinalIn .1s linear forwards;
+  }
+  @keyframes stampFinalIn{ to{opacity:1;} }
+  .stamp-final{
+    display:inline-block;border:3px solid var(--red);border-radius:8px;
+    color:var(--red);font-weight:900;font-size:23px;letter-spacing:.06em;
+    padding:10px 20px;transform:rotate(-8deg);
+    box-shadow:0 0 0 2px rgba(179,18,27,.18), 3px 4px 0 rgba(179,18,27,.12);
+    text-shadow:0 0 6px rgba(179,18,27,.25);
+    background:rgba(179,18,27,.04);
+    animation:stampFinal .55s cubic-bezier(.3,1.6,.5,1) both;
+  }
+  @keyframes stampFinal{
+    0%{transform:scale(3) rotate(-8deg);opacity:0;}
+    60%{transform:scale(0.85) rotate(-8deg);opacity:1;}
+    80%{transform:scale(1.14) rotate(-8deg);}
+    100%{transform:scale(1) rotate(-8deg);opacity:1;}
+  }
+
+  .result-text{
+    font-size:14.5px;color:#3a342b;text-align:left;margin:14px 2px 0;line-height:1.75;
+  }
+  .presc{
+    font-size:12.5px;color:#6a6152;text-align:left;margin-top:10px;
+    padding-top:10px;border-top:1px dashed #b8ac8a;
+  }
+
+  /* 標準装備＋フッター */
+  .kit{
+    width:100%;margin-top:26px;padding-top:16px;
+    border-top:1px solid rgba(201,162,76,.22);
+    font-size:12.5px;color:#c7d2e2;text-align:left;line-height:1.9;
+  }
+  .kit a{color:var(--gold-hi);text-decoration:none;}
+  .foot{margin-top:16px;font-size:11px;color:#8a93a6;letter-spacing:.1em;opacity:.85;}
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <!-- ① タイトル -->
+  <section id="screen-title" class="screen active">
+    <div class="kicker">Ｄ Ｉ Ａ Ｇ Ｎ Ｏ Ｓ Ｉ Ｓ　Ｇ Ｙ Ｐ Ｓ Ｙ</div>
+    <h1 class="title">診断ジプシー度<br>チェッカー</h1>
+    <div class="rule"></div>
+    <p class="lede">これが最後の診断になるといいですね。</p>
+    <p class="note">※これも診断です</p>
+    <div class="rule"></div>
+    <button class="btn primary" onclick="go('checklist')">診断をはじめる（また）</button>
+  </section>
+
+  <!-- ② チェックリスト -->
+  <section id="screen-checklist" class="screen">
+    <div class="kicker">Ｃ Ｈ Ｅ Ｃ Ｋ Ｌ Ｉ Ｓ Ｔ</div>
+    <h2 class="prompt">当てはまるものをタップ</h2>
+    <p class="sub">いくつ選んでも、0個でも進めます。</p>
+    <div class="list" id="check-list"></div>
+    <p class="counter" id="counter">選択：0 / 12</p>
+    <button class="btn primary" onclick="judge()">判定する</button>
+  </section>
+
+  <!-- ③ 結果＝診断パスポート -->
+  <section id="screen-result" class="screen">
+    <div class="kicker">Ｒ Ｅ Ｓ Ｕ Ｌ Ｔ　Ｐ Ａ Ｓ Ｓ Ｐ Ｏ Ｒ Ｔ</div>
+
+    <div class="passport">
+      <div class="passport-head">DIAGNOSIS PASSPORT ／ 自己探索記録</div>
+      <div class="stamps" id="stamps"></div>
+      <div class="voyage">渡航回数（チェック数）</div>
+      <div class="pct" id="pct">0<span>%</span></div>
+      <div class="stamp-final-wrap" id="stamp-final-wrap">
+        <div class="stamp-final" id="stamp-final">定住民</div>
+      </div>
+      <p class="result-text" id="result-text">——</p>
+      <p class="presc" id="presc">処方箋: ——</p>
+    </div>
+
+    <button class="btn share" onclick="share()">この結果をシェア</button>
+    <button class="btn ghost" onclick="go('title')">もう一度診断する（また）</button>
+
+    <div class="kit">
+      🛠 これ、スマホのClaude Codeだけで作りました（作り方: <a href="#">#</a>）<br>
+      🎁 次のヘンなアプリはフォローで → <a href="#">@ai_iinari_man</a>
+    </div>
+    <p class="foot">エンタメ目的の遊びです</p>
+  </section>
+
+</div>
+
+<script>
+  var SHARE_URL = "https://karinto-bento.github.io/01/shindan-gypsy/";
+
+  var ITEMS = [
+    "アルファベット4文字の型を、本名より先に名乗れる",
+    "16タイプ系の診断、結果じゃなくて「全タイプ分」受けた",
+    "結果が気に入らなくて、正直に答えるフリをして選び直したことがある",
+    "「本当の自分はもっと繊細なはず」と同じ診断を再受験した",
+    "動物・色・武将・パン——何にでも例えられてきた",
+    "スマホに診断結果のスクショが5枚以上ある",
+    "相性診断の結果を見てから、人との距離感を決めたことがある",
+    "「あなたは周りに気を使いすぎるタイプ」に毎回深くうなずいている",
+    "星座と血液型は「非科学的」と言いつつ、性格診断は信じている",
+    "深夜2時に「自分 取扱説明書」で検索したことがある",
+    "途中で「これ前もやった」と気づいたのに最後まで答えた",
+    "この診断も「どうせ当たってる」と思い始めている"
+  ];
+
+  var RANKS = [
+    { max:2,  title:"定住民",     text:"診断とは健全な距離感。もはやこのアプリに来た理由が謎です。……その好奇心、大切にしてください。", presc:"処方箋: 特になし。お帰りはあちらです。" },
+    { max:5,  title:"小旅行者",   text:"週末だけ自分探しに出るタイプ。まだ帰り道を覚えています。ちゃんと戻れるのは、えらい。", presc:"処方箋: 次の診断まで最低3日あけましょう。" },
+    { max:8,  title:"診断ジプシー", text:"おめでとうございます、認定です。あなたの自分探しは旅から放浪に変わりました。でも、探し続ける人は誠実な人です。", presc:"処方箋: 今日はもう鏡を見てください。だいたいあれが答えです。" },
+    { max:11, title:"遊牧民",     text:"定住を知らない魂。パスポートはスタンプで真っ黒です。ここまで来ると逆に自分に詳しい。", presc:"処方箋: あなたが診断を作る側に回ってください。" },
+    { max:12, title:"診断そのもの", text:"もはやあなたが診断です。人類があなたを受診する日も近い。その探究心は、本物です。", presc:"処方箋: 不要。あなたはもう全タイプです。" }
+  ];
+
+  var STAMP_ICONS = ["🐫","🧭","🗺️","🎪"];
+  var STAMP_ROTS = ["-14deg","10deg","-6deg","18deg"];
+
+  var currentPct = 0;
+  var currentTitle = RANKS[0].title;
+
+  // チェックリスト描画
+  (function(){
+    var box = document.getElementById("check-list");
+    for (var i=0;i<ITEMS.length;i++){
+      var label = document.createElement("label");
+      label.className = "chk";
+      var input = document.createElement("input");
+      input.type = "checkbox";
+      input.value = i;
+      input.addEventListener("change", onCheckChange);
+      var span = document.createElement("span");
+      span.textContent = ITEMS[i];
+      label.appendChild(input);
+      label.appendChild(span);
+      box.appendChild(label);
+    }
+  })();
+
+  function onCheckChange(e){
+    var label = e.target.closest(".chk");
+    label.classList.toggle("checked", e.target.checked);
+    var n = document.querySelectorAll("#check-list input:checked").length;
+    document.getElementById("counter").textContent = "選択：" + n + " / 12";
+  }
+
+  function go(name){
+    var scs = document.querySelectorAll(".screen");
+    for (var i=0;i<scs.length;i++) scs[i].classList.remove("active");
+    document.getElementById("screen-"+name).classList.add("active");
+    window.scrollTo(0,0);
+  }
+
+  function getRank(count){
+    for (var i=0;i<RANKS.length;i++){
+      if (count <= RANKS[i].max) return RANKS[i];
+    }
+    return RANKS[RANKS.length-1];
+  }
+
+  function judge(){
+    var count = document.querySelectorAll("#check-list input:checked").length;
+    var pct = Math.round(count / 12 * 100);
+    var rank = getRank(count);
+
+    currentPct = pct;
+    currentTitle = rank.title;
+
+    document.getElementById("pct").innerHTML = pct + "<span>%</span>";
+    document.getElementById("result-text").textContent = rank.text;
+    document.getElementById("presc").textContent = rank.presc;
+    document.getElementById("stamp-final").textContent = rank.title;
+
+    // スタンプ演出（0.2秒間隔で回転しながらドンと着地→最後に称号スタンプ）
+    var stampsBox = document.getElementById("stamps");
+    stampsBox.innerHTML = "";
+    for (var i=0;i<STAMP_ICONS.length;i++){
+      var s = document.createElement("span");
+      s.className = "stamp";
+      s.textContent = STAMP_ICONS[i];
+      s.style.setProperty("--rot", STAMP_ROTS[i]);
+      s.style.animationDelay = (i*0.2) + "s";
+      stampsBox.appendChild(s);
+    }
+    var finalWrap = document.getElementById("stamp-final-wrap");
+    finalWrap.classList.remove("show");
+    var finalStamp = document.getElementById("stamp-final");
+    finalStamp.style.animation = "none";
+    void finalStamp.offsetWidth; // reflow でアニメ再始動
+    finalStamp.style.animation = "";
+    finalStamp.style.animationDelay = (STAMP_ICONS.length*0.2 + 0.15) + "s";
+    finalWrap.classList.add("show");
+
+    go("result");
+  }
+
+  function share(){
+    var text =
+      "【診断ジプシー度チェッカー】私の診断ジプシー度：" + currentPct + "%「" + currentTitle + "」でした。これが最後の診断になるといいですね。\n" +
+      SHARE_URL + " #AI言いなりマン";
+    var url = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(text);
+    window.open(url, "_blank");
+  }
+</script>
+
+</body>
+</html>
